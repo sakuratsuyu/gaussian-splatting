@@ -25,11 +25,15 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     # Create zero tensor. We will use it to make pytorch return gradients of the 2D (screen-space) means
     screenspace_points = torch.zeros_like(pc.get_xyz, dtype=pc.get_xyz.dtype, requires_grad=True, device="cuda") + 0
     try:
+        # 在调试过程中, 有时候我们需要对中间变量梯度进行监控, 以确保网络的有效性
+        # retain_grad() 显式地保存非叶节点的梯度
         screenspace_points.retain_grad()
     except:
         pass
 
     # Set up rasterization configuration
+    # tanfovx 是水平视场角一半的正切值。它定义了视锥在水平方向的范围，可以用来确定屏幕上每个像素在水平方向上的世界空间单位
+    # tanfovy 是垂直视场角一半的正切值。它定义了视锥在垂直方向的范围，可以用来确定屏幕上每个像素在垂直方向上的世界空间单位
     tanfovx = math.tan(viewpoint_camera.FoVx * 0.5)
     tanfovy = math.tan(viewpoint_camera.FoVy * 0.5)
 
@@ -54,8 +58,8 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     means2D = screenspace_points
     opacity = pc.get_opacity
 
-    # If precomputed 3d covariance is provided, use it. If not, then it will be computed from
-    # scaling / rotation by the rasterizer.
+    # If precomputed 3d covariance is provided, use it.
+    # If not, then it will be computed from scaling / rotation by the rasterizer.
     scales = None
     rotations = None
     cov3D_precomp = None
@@ -65,8 +69,9 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         scales = pc.get_scaling
         rotations = pc.get_rotation
 
-    # If precomputed colors are provided, use them. Otherwise, if it is desired to precompute colors
-    # from SHs in Python, do it. If not, then SH -> RGB conversion will be done by rasterizer.
+    # If precomputed colors are provided, use them.
+    # Otherwise, if it is desired to precompute colors from SHs in Python, do it.
+    # If not, then SH -> RGB conversion will be done by rasterizer.
     shs = None
     colors_precomp = None
     if override_color is None:
@@ -94,7 +99,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
 
     # Those Gaussians that were frustum culled or had a radius of 0 were not visible.
     # They will be excluded from value updates used in the splitting criteria.
-    return {"render": rendered_image,
+    return {"render": rendered_image, # (3, H, W)
             "viewspace_points": screenspace_points,
             "visibility_filter" : radii > 0,
-            "radii": radii}
+            "radii": radii} # (P,)
