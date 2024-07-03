@@ -15,6 +15,10 @@ from datetime import datetime
 import numpy as np
 import random
 
+import cv2
+from typing import Sequence
+
+
 def inverse_sigmoid(x):
     return torch.log(x/(1-x))
 
@@ -25,6 +29,15 @@ def PILtoTorch(pil_image, resolution):
         return resized_image.permute(2, 0, 1)
     else:
         return resized_image.unsqueeze(dim=-1).permute(2, 0, 1)
+
+
+def OpenCVtoTorch(image: np.ndarray, resolution: Sequence[int]) -> torch.Tensor:
+    resized_image = torch.from_numpy(cv2.resize(image, resolution))
+    if len(resized_image.shape) == 3:
+        return resized_image.permute(2, 0, 1)
+    else:
+        return resized_image.unsqueeze(dim=-1).permute(2, 0, 1)
+
 
 def get_expon_lr_func(
     lr_init, lr_final, lr_delay_steps=0, lr_delay_mult=1.0, max_steps=1000000
